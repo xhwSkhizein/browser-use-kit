@@ -324,15 +324,6 @@ export async function scrollToBottomViaPlaywright(opts: {
     scrollHeight: number;
     clientHeight: number;
   } | null;
-  debug: Array<{
-    iteration: number;
-    elementCount: number;
-    scrolled: boolean;
-    heightBefore: number;
-    heightAfter: number;
-    isAtBottom: boolean;
-    message: string;
-  }>;
 }> {
   const page = await getPageForTargetId(opts);
   ensurePageState(page);
@@ -340,16 +331,6 @@ export async function scrollToBottomViaPlaywright(opts: {
 
   const maxElementCount = Math.max(1, Math.floor(opts.maxElementCount ?? 500));
   const waitTimeoutMs = Math.max(100, Math.min(30_000, opts.waitTimeoutMs ?? 5000));
-
-  const debug: Array<{
-    iteration: number;
-    elementCount: number;
-    scrolled: boolean;
-    heightBefore: number;
-    heightAfter: number;
-    isAtBottom: boolean;
-    message: string;
-  }> = [];
 
   try {
     const scrollableInfo = await page.evaluate(() => {
@@ -469,34 +450,13 @@ export async function scrollToBottomViaPlaywright(opts: {
           }
         : null;
 
-      if (fallbackScrollableInfo) {
-        debug.push({
-          iteration: 0,
-          elementCount: 0,
-          scrolled: false,
-          heightBefore: 0,
-          heightAfter: 0,
-          isAtBottom: false,
-          message: `Using fallback scrollable detection. Debug: bodyScrollHeight=${debugInfo.bodyScrollHeight}, windowInnerHeight=${debugInfo.windowInnerHeight}`,
-        });
-      } else {
+      if (!fallbackScrollableInfo) {
         return {
           scrolled: false,
           scrollCount: 0,
           finalHeight: 0,
           initialHeight: 0,
           scrollableInfo: null,
-          debug: [
-            {
-              iteration: 0,
-              elementCount: 0,
-              scrolled: false,
-              heightBefore: 0,
-              heightAfter: 0,
-              isAtBottom: false,
-              message: `No scrollable element found. Debug: bodyScrollHeight=${debugInfo.bodyScrollHeight}, bodyClientHeight=${debugInfo.bodyClientHeight}, windowInnerHeight=${debugInfo.windowInnerHeight}, currentScrollY=${debugInfo.currentScrollY}, canScrollByHeight=${debugInfo.canScrollByHeight}, canScrollByInnerHeight=${debugInfo.canScrollByInnerHeight}, canScrollByPosition=${debugInfo.canScrollByPosition}, documentBodyScrollHeight=${debugInfo.documentBodyScrollHeight}, documentElementScrollHeight=${debugInfo.documentElementScrollHeight}`,
-            },
-          ],
         };
       }
 
@@ -517,7 +477,6 @@ export async function scrollToBottomViaPlaywright(opts: {
             document.documentElement.scrollTop || 0,
           );
           let scrolled = false;
-          let debugMessage = `Window scroll: current=${currentScrollY}, max=${maxScrollHeight}`;
           if (currentScrollY < maxScrollHeight - 10) {
             window.scrollTo({
               top: maxScrollHeight,
@@ -525,11 +484,8 @@ export async function scrollToBottomViaPlaywright(opts: {
               behavior: "instant",
             });
             scrolled = true;
-            debugMessage += ` -> scrolled to ${maxScrollHeight}`;
-          } else {
-            debugMessage += " -> already at bottom";
           }
-          return { scrolled, debugMessage };
+          return { scrolled };
         });
 
         if (scrollResult.scrolled) {
@@ -540,16 +496,6 @@ export async function scrollToBottomViaPlaywright(opts: {
 
         const currentHeight = await page.evaluate(() => {
           return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-        });
-
-        debug.push({
-          iteration: scrollCount,
-          elementCount: 0,
-          scrolled: scrollResult.scrolled,
-          heightBefore: lastHeight,
-          heightAfter: currentHeight,
-          isAtBottom: false,
-          message: scrollResult.debugMessage,
         });
 
         if (currentHeight === lastHeight && hasScrolledAtLeastOnce) {
@@ -589,7 +535,6 @@ export async function scrollToBottomViaPlaywright(opts: {
         finalHeight: lastHeight,
         initialHeight,
         scrollableInfo: fallbackScrollableInfo,
-        debug,
       };
     }
 
@@ -613,7 +558,6 @@ export async function scrollToBottomViaPlaywright(opts: {
       const scrollResult = await page.evaluate(
         (info) => {
           let scrolled = false;
-          let debugMessage = "";
           if (info.isWindow) {
             const maxScrollHeight = Math.max(
               document.body.scrollHeight,
@@ -623,7 +567,6 @@ export async function scrollToBottomViaPlaywright(opts: {
               window.scrollY || window.pageYOffset || 0,
               document.documentElement.scrollTop || 0,
             );
-            debugMessage = `Window scroll: current=${currentScrollY}, max=${maxScrollHeight}`;
             if (currentScrollY < maxScrollHeight - 10) {
               window.scrollTo({
                 top: maxScrollHeight,
@@ -631,18 +574,13 @@ export async function scrollToBottomViaPlaywright(opts: {
                 behavior: "instant",
               });
               scrolled = true;
-              debugMessage += ` -> scrolled to ${maxScrollHeight}`;
-            } else {
-              debugMessage += " -> already at bottom";
             }
           } else {
             let targetElement: Element | null = null;
             if (info.selector) {
               targetElement = document.querySelector(info.selector);
-              debugMessage = `Looking for element with selector: ${info.selector}`;
             }
             if (!targetElement) {
-              debugMessage += " -> selector not found, searching by scrollHeight";
               const allElements = Array.from(document.querySelectorAll("*"));
               for (const el of allElements) {
                 const style = window.getComputedStyle(el);
@@ -653,17 +591,13 @@ export async function scrollToBottomViaPlaywright(opts: {
                   Math.abs(el.scrollHeight - info.scrollHeight) < 50
                 ) {
                   targetElement = el;
-                  debugMessage += ` -> found element with scrollHeight=${el.scrollHeight}`;
                   break;
                 }
               }
-            } else {
-              debugMessage += " -> found by selector";
             }
             if (targetElement) {
               const currentScrollTop = targetElement.scrollTop;
               const maxScrollTop = targetElement.scrollHeight - targetElement.clientHeight;
-              debugMessage += `, currentScrollTop=${currentScrollTop}, maxScrollTop=${maxScrollTop}`;
               if (currentScrollTop < maxScrollTop - 10) {
                 targetElement.scrollTo({
                   top: targetElement.scrollHeight,
@@ -671,15 +605,10 @@ export async function scrollToBottomViaPlaywright(opts: {
                   behavior: "instant",
                 });
                 scrolled = true;
-                debugMessage += ` -> scrolled to ${targetElement.scrollHeight}`;
-              } else {
-                debugMessage += " -> already at bottom";
               }
-            } else {
-              debugMessage += " -> element not found";
             }
           }
-          return { scrolled, debugMessage };
+          return { scrolled };
         },
         scrollableInfo,
       );
@@ -718,28 +647,10 @@ export async function scrollToBottomViaPlaywright(opts: {
       }, scrollableInfo);
 
       if (elementCount >= maxElementCount && hasScrolledAtLeastOnce) {
-        debug.push({
-          iteration: scrollCount,
-          elementCount,
-          scrolled: scrollResult.scrolled,
-          heightBefore,
-          heightAfter: currentHeight,
-          isAtBottom: false,
-          message: `Stopped: elementCount ${elementCount} >= maxElementCount ${maxElementCount}`,
-        });
         break;
       }
 
       if (currentHeight > lastHeight) {
-        debug.push({
-          iteration: scrollCount,
-          elementCount,
-          scrolled: scrollResult.scrolled,
-          heightBefore,
-          heightAfter: currentHeight,
-          isAtBottom: false,
-          message: `Height increased: ${heightBefore} -> ${currentHeight}. ${scrollResult.debugMessage}`,
-        });
         lastHeight = currentHeight;
         scrollCount++;
         continue;
@@ -793,28 +704,10 @@ export async function scrollToBottomViaPlaywright(opts: {
         }, scrollableInfo);
 
         if (quickCheckAtBottom && hasScrolledAtLeastOnce) {
-          debug.push({
-            iteration: scrollCount,
-            elementCount,
-            scrolled: scrollResult.scrolled,
-            heightBefore,
-            heightAfter: currentHeight,
-            isAtBottom: true,
-            message: `Reached bottom after scroll. ${scrollResult.debugMessage}`,
-          });
           break;
         }
 
         if (!hasScrolledAtLeastOnce) {
-          debug.push({
-            iteration: scrollCount,
-            elementCount,
-            scrolled: scrollResult.scrolled,
-            heightBefore,
-            heightAfter: currentHeight,
-            isAtBottom: false,
-            message: `First scroll attempt, waiting ${waitTimeoutMs}ms. ${scrollResult.debugMessage}`,
-          });
           await page.waitForTimeout(waitTimeoutMs);
           const newHeight = await page.evaluate((info) => {
             if (info.isWindow) {
@@ -843,26 +736,8 @@ export async function scrollToBottomViaPlaywright(opts: {
             }
           }, scrollableInfo);
           if (newHeight === currentHeight) {
-            debug.push({
-              iteration: scrollCount,
-              elementCount,
-              scrolled: scrollResult.scrolled,
-              heightBefore,
-              heightAfter: currentHeight,
-              isAtBottom: false,
-              message: `Height unchanged after wait: ${currentHeight}. Stopping.`,
-            });
             break;
           }
-          debug.push({
-            iteration: scrollCount,
-            elementCount,
-            scrolled: scrollResult.scrolled,
-            heightBefore,
-            heightAfter: newHeight,
-            isAtBottom: false,
-            message: `Height changed after wait: ${currentHeight} -> ${newHeight}`,
-          });
           lastHeight = newHeight;
           scrollCount++;
           continue;
@@ -930,20 +805,6 @@ export async function scrollToBottomViaPlaywright(opts: {
           }
         }, scrollableInfo);
 
-        const scrollInfo = isAtBottom.isWindow
-          ? `Scroll position: ${isAtBottom.currentScrollY}/${isAtBottom.maxScrollHeight} (scrollHeight=${isAtBottom.scrollHeight}, clientHeight=${isAtBottom.clientHeight})`
-          : `Scroll position: ${isAtBottom.currentScrollY}/${isAtBottom.maxScrollHeight}`;
-
-        debug.push({
-          iteration: scrollCount,
-          elementCount,
-          scrolled: scrollResult.scrolled,
-          heightBefore,
-          heightAfter: currentHeight,
-          isAtBottom: isAtBottom.isAtBottom,
-          message: `Height unchanged: ${currentHeight}. ${scrollInfo}. ${scrollResult.debugMessage}`,
-        });
-
         if (isAtBottom.isAtBottom) {
           break;
         }
@@ -959,7 +820,6 @@ export async function scrollToBottomViaPlaywright(opts: {
       finalHeight: lastHeight,
       initialHeight,
       scrollableInfo,
-      debug,
     };
   } catch (err) {
     throw toAIFriendlyError(err, "scrollToBottom");

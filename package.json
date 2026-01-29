@@ -9,9 +9,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/cli.js",
-    "dev": "tsx src/cli.ts",
-    "serve": "node dist/cli.js & npx http-server public -p 8080 -o"
+    "start": "bun dist/cli.js",
+    "dev": "bun src/cli.ts",
+    "serve": "bun dist/cli.js & bunx http-server public -p 8080 -o"
   },
   "dependencies": {
     "express": "^4.18.2",

@@ -171,7 +171,6 @@ export function registerBrowserAgentActRoutes(app: express.Express, ctx: Browser
             finalHeight: result.finalHeight,
             initialHeight: result.initialHeight,
             scrollableInfo: result.scrollableInfo,
-            debug: result.debug,
           });
         }
         case "drag": {

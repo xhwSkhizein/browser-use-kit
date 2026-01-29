@@ -20,26 +20,26 @@
 
 ```bash
 cd browser-use-kit
-npm install
+bun install
 ```
 
 ### 构建
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### 启动服务器
 
 ```bash
 # 使用默认配置（127.0.0.1:18791）
-npm start
+bun start
 
 # 自定义配置
-npm start -- --host 0.0.0.0 --port 8080 --token my-secret-token
+bun start -- --host 0.0.0.0 --port 8080 --token my-secret-token
 
 # 使用配置文件
-npm start -- --config /path/to/config.json
+bun start -- --config /path/to/config.json
 ```
 
 ### CLI 选项
@@ -269,11 +269,41 @@ npm start -- --config /path/to/config.json
 }
 ```
 
+**请求体示例（滚动到底部）：**
+```json
+{
+  "kind": "scrollToBottom",
+  "targetId": "ABCD1234",
+  "maxElementCount": 500,
+  "waitTimeoutMs": 5000
+}
+```
+
+**响应（滚动到底部）：**
+```json
+{
+  "ok": true,
+  "targetId": "ABCD1234",
+  "scrolled": true,
+  "scrollCount": 3,
+  "finalHeight": 5000,
+  "initialHeight": 2000,
+  "scrollableInfo": {
+    "isWindow": true,
+    "selector": null,
+    "scrollHeight": 5000,
+    "clientHeight": 800
+  }
+}
+```
+
 **支持的操作类型：**
 - `click`: 点击
 - `type`: 输入文本
 - `press`: 按键
 - `hover`: 悬停
+- `scrollIntoView`: 滚动元素到视图
+- `scrollToBottom`: 滚动页面到底部（支持无限滚动）
 - `drag`: 拖拽
 - `select`: 选择选项
 - `fill`: 填充表单
@@ -405,7 +435,7 @@ browser-use-kit/
 
 ## 依赖
 
-- Node.js >= 22.0.0
+- Bun >= 1.0.0
 - express: HTTP 服务器
 - playwright-core: 浏览器自动化
 - ws: WebSocket 客户端
@@ -426,9 +456,9 @@ browser-use-kit/
 **只需启动浏览器控制服务器，测试界面会自动可用！**
 
 ```bash
-npm install
-npm run build
-npm start
+bun install
+bun run build
+bun start
 ```
 
 然后在浏览器中打开 `http://127.0.0.1:18791/`（或你配置的服务器地址）即可使用测试界面。

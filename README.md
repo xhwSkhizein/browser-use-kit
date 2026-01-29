@@ -20,26 +20,26 @@ The system supports **clawd management mode** (standalone browsers), where each 
 
 ```bash
 cd browser-use-standalone
-npm install
+bun install
 ```
 
 ### Build
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### Start the Server
 
 ```bash
 # Default configuration (127.0.0.1:18791)
-npm start
+bun start
 
 # Custom configuration
-npm start -- --host 0.0.0.0 --port 8080 --token my-secret-token
+bun start -- --host 0.0.0.0 --port 8080 --token my-secret-token
 
 # Start with config file
-npm start -- --config /path/to/config.json
+bun start -- --config /path/to/config.json
 ```
 
 ### CLI Options
@@ -269,11 +269,41 @@ Executes browser actions (click, type, drag, etc.).
 }
 ```
 
+**Sample Request Body (ScrollToBottom):**
+```json
+{
+  "kind": "scrollToBottom",
+  "targetId": "ABCD1234",
+  "maxElementCount": 500,
+  "waitTimeoutMs": 5000
+}
+```
+
+**Response (ScrollToBottom):**
+```json
+{
+  "ok": true,
+  "targetId": "ABCD1234",
+  "scrolled": true,
+  "scrollCount": 3,
+  "finalHeight": 5000,
+  "initialHeight": 2000,
+  "scrollableInfo": {
+    "isWindow": true,
+    "selector": null,
+    "scrollHeight": 5000,
+    "clientHeight": 800
+  }
+}
+```
+
 **Supported Action Types:**
 - `click`: Click
 - `type`: Input text
 - `press`: Key press
 - `hover`: Hover
+- `scrollIntoView`: Scroll element into view
+- `scrollToBottom`: Scroll page to bottom (supports infinite scroll)
 - `drag`: Drag
 - `select`: Select option
 - `fill`: Fill form
@@ -405,7 +435,7 @@ browser-use-standalone/
 
 ## Dependencies
 
-- Node.js >= 22.0.0
+- Bun >= 1.0.0
 - express: HTTP server
 - playwright-core: Browser automation
 - ws: WebSocket client
@@ -426,9 +456,9 @@ The project includes a built-in web test interface for conveniently testing all 
 **Just start the browser control server, the test interface will be available automatically!**
 
 ```bash
-npm install
-npm run build
-npm start
+bun install
+bun run build
+bun start
 ```
 
 Then open `http://127.0.0.1:18791/` (or your configured server address) in a browser to use the test interface.
