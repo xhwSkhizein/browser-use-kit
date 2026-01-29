@@ -36,6 +36,7 @@ import {
   restoreRoleRefsForTarget,
 } from "./pw-session.js";
 import { normalizeTimeoutMs, requireRef, toAIFriendlyError } from "./pw-tools-core.shared.js";
+import { snapshotRoleViaPlaywright } from "./pw-tools-core.snapshot.js";
 
 export async function highlightViaPlaywright(opts: {
   cdpUrl: string;
@@ -304,6 +305,664 @@ export async function scrollIntoViewViaPlaywright(opts: {
     await locator.scrollIntoViewIfNeeded({ timeout });
   } catch (err) {
     throw toAIFriendlyError(err, ref);
+  }
+}
+
+export async function scrollToBottomViaPlaywright(opts: {
+  cdpUrl: string;
+  targetId?: string;
+  maxElementCount?: number;
+  waitTimeoutMs?: number;
+}): Promise<{
+  scrolled: boolean;
+  scrollCount: number;
+  finalHeight: number;
+  initialHeight: number;
+  scrollableInfo: {
+    isWindow: boolean;
+    selector: string | null;
+    scrollHeight: number;
+    clientHeight: number;
+  } | null;
+  debug: Array<{
+    iteration: number;
+    elementCount: number;
+    scrolled: boolean;
+    heightBefore: number;
+    heightAfter: number;
+    isAtBottom: boolean;
+    message: string;
+  }>;
+}> {
+  const page = await getPageForTargetId(opts);
+  ensurePageState(page);
+  restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
+
+  const maxElementCount = Math.max(1, Math.floor(opts.maxElementCount ?? 500));
+  const waitTimeoutMs = Math.max(100, Math.min(30_000, opts.waitTimeoutMs ?? 5000));
+
+  const debug: Array<{
+    iteration: number;
+    elementCount: number;
+    scrolled: boolean;
+    heightBefore: number;
+    heightAfter: number;
+    isAtBottom: boolean;
+    message: string;
+  }> = [];
+
+  try {
+    const scrollableInfo = await page.evaluate(() => {
+      const candidates: Array<{
+        isWindow: boolean;
+        selector: string | null;
+        scrollHeight: number;
+        clientHeight: number;
+      }> = [];
+
+      const bodyScrollHeight = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+      );
+      const bodyClientHeight = Math.max(
+        document.body.clientHeight,
+        document.documentElement.clientHeight,
+        window.innerHeight,
+      );
+      const windowInnerHeight = window.innerHeight;
+      const currentScrollY = Math.max(
+        window.scrollY || window.pageYOffset || 0,
+        document.documentElement.scrollTop || 0,
+      );
+
+      const canScrollByHeight = bodyScrollHeight > bodyClientHeight;
+      const canScrollByInnerHeight = bodyScrollHeight > windowInnerHeight;
+      const canScrollByPosition = currentScrollY < bodyScrollHeight - 10;
+      const canScroll = canScrollByHeight || canScrollByInnerHeight || canScrollByPosition;
+
+      if (canScroll) {
+        candidates.push({
+          isWindow: true,
+          selector: null,
+          scrollHeight: bodyScrollHeight,
+          clientHeight: Math.max(bodyClientHeight, windowInnerHeight),
+        });
+      }
+
+      const allElements = Array.from(document.querySelectorAll("*"));
+      for (const el of allElements) {
+        const style = window.getComputedStyle(el);
+        const overflow = style.overflow + style.overflowY + style.overflowX;
+        if (overflow.includes("auto") || overflow.includes("scroll")) {
+          const scrollHeight = el.scrollHeight;
+          const clientHeight = el.clientHeight;
+          if (scrollHeight > clientHeight) {
+            let selector: string | null = null;
+            try {
+              if (el.id) {
+                selector = `#${el.id}`;
+              } else if (el.className && typeof el.className === "string") {
+                const classes = el.className.split(/\s+/).filter((c: string) => c);
+                if (classes.length > 0) {
+                  selector = `.${classes[0]}`;
+                }
+              }
+            } catch {
+              selector = null;
+            }
+            candidates.push({
+              isWindow: false,
+              selector,
+              scrollHeight,
+              clientHeight,
+            });
+          }
+        }
+      }
+
+      if (candidates.length === 0) return null;
+      return candidates.reduce((max, curr) =>
+        curr.scrollHeight > max.scrollHeight ? curr : max,
+      );
+    });
+
+    if (!scrollableInfo) {
+      const debugInfo = await page.evaluate(() => {
+        const bodyScrollHeight = Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight,
+        );
+        const bodyClientHeight = Math.max(
+          document.body.clientHeight,
+          document.documentElement.clientHeight,
+          window.innerHeight,
+        );
+        const windowInnerHeight = window.innerHeight;
+        const currentScrollY = Math.max(
+          window.scrollY || window.pageYOffset || 0,
+          document.documentElement.scrollTop || 0,
+        );
+        const canScrollByHeight = bodyScrollHeight > bodyClientHeight;
+        const canScrollByInnerHeight = bodyScrollHeight > windowInnerHeight;
+        const canScrollByPosition = currentScrollY < bodyScrollHeight - 10;
+        return {
+          bodyScrollHeight,
+          bodyClientHeight,
+          windowInnerHeight,
+          currentScrollY,
+          canScrollByHeight,
+          canScrollByInnerHeight,
+          canScrollByPosition,
+          documentBodyScrollHeight: document.body.scrollHeight,
+          documentElementScrollHeight: document.documentElement.scrollHeight,
+          documentBodyClientHeight: document.body.clientHeight,
+          documentElementClientHeight: document.documentElement.clientHeight,
+        };
+      });
+
+      const fallbackScrollableInfo = debugInfo.bodyScrollHeight > debugInfo.windowInnerHeight
+        ? {
+            isWindow: true,
+            selector: null,
+            scrollHeight: debugInfo.bodyScrollHeight,
+            clientHeight: debugInfo.windowInnerHeight,
+          }
+        : null;
+
+      if (fallbackScrollableInfo) {
+        debug.push({
+          iteration: 0,
+          elementCount: 0,
+          scrolled: false,
+          heightBefore: 0,
+          heightAfter: 0,
+          isAtBottom: false,
+          message: `Using fallback scrollable detection. Debug: bodyScrollHeight=${debugInfo.bodyScrollHeight}, windowInnerHeight=${debugInfo.windowInnerHeight}`,
+        });
+      } else {
+        return {
+          scrolled: false,
+          scrollCount: 0,
+          finalHeight: 0,
+          initialHeight: 0,
+          scrollableInfo: null,
+          debug: [
+            {
+              iteration: 0,
+              elementCount: 0,
+              scrolled: false,
+              heightBefore: 0,
+              heightAfter: 0,
+              isAtBottom: false,
+              message: `No scrollable element found. Debug: bodyScrollHeight=${debugInfo.bodyScrollHeight}, bodyClientHeight=${debugInfo.bodyClientHeight}, windowInnerHeight=${debugInfo.windowInnerHeight}, currentScrollY=${debugInfo.currentScrollY}, canScrollByHeight=${debugInfo.canScrollByHeight}, canScrollByInnerHeight=${debugInfo.canScrollByInnerHeight}, canScrollByPosition=${debugInfo.canScrollByPosition}, documentBodyScrollHeight=${debugInfo.documentBodyScrollHeight}, documentElementScrollHeight=${debugInfo.documentElementScrollHeight}`,
+            },
+          ],
+        };
+      }
+
+      const initialHeight = fallbackScrollableInfo.scrollHeight;
+      let lastHeight = fallbackScrollableInfo.scrollHeight;
+      let scrollCount = 0;
+      const maxScrolls = 100;
+      let hasScrolledAtLeastOnce = false;
+
+      while (scrollCount < maxScrolls) {
+        const scrollResult = await page.evaluate(() => {
+          const maxScrollHeight = Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+          );
+          const currentScrollY = Math.max(
+            window.scrollY || window.pageYOffset || 0,
+            document.documentElement.scrollTop || 0,
+          );
+          let scrolled = false;
+          let debugMessage = `Window scroll: current=${currentScrollY}, max=${maxScrollHeight}`;
+          if (currentScrollY < maxScrollHeight - 10) {
+            window.scrollTo({
+              top: maxScrollHeight,
+              left: 0,
+              behavior: "instant",
+            });
+            scrolled = true;
+            debugMessage += ` -> scrolled to ${maxScrollHeight}`;
+          } else {
+            debugMessage += " -> already at bottom";
+          }
+          return { scrolled, debugMessage };
+        });
+
+        if (scrollResult.scrolled) {
+          hasScrolledAtLeastOnce = true;
+        }
+
+        await page.waitForTimeout(200);
+
+        const currentHeight = await page.evaluate(() => {
+          return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+        });
+
+        debug.push({
+          iteration: scrollCount,
+          elementCount: 0,
+          scrolled: scrollResult.scrolled,
+          heightBefore: lastHeight,
+          heightAfter: currentHeight,
+          isAtBottom: false,
+          message: scrollResult.debugMessage,
+        });
+
+        if (currentHeight === lastHeight && hasScrolledAtLeastOnce) {
+          const isAtBottom = await page.evaluate(() => {
+            const scrollHeight = Math.max(
+              document.body.scrollHeight,
+              document.documentElement.scrollHeight,
+            );
+            const clientHeight = Math.max(
+              document.body.clientHeight,
+              document.documentElement.clientHeight,
+              window.innerHeight,
+            );
+            const maxScrollTop = scrollHeight - clientHeight;
+            const currentScrollY = Math.max(
+              window.scrollY || window.pageYOffset || 0,
+              document.documentElement.scrollTop || 0,
+            );
+            return currentScrollY >= maxScrollTop - 10;
+          });
+
+          if (isAtBottom) {
+            break;
+          }
+        }
+
+        if (currentHeight > lastHeight) {
+          lastHeight = currentHeight;
+        }
+
+        scrollCount++;
+      }
+
+      return {
+        scrolled: hasScrolledAtLeastOnce,
+        scrollCount,
+        finalHeight: lastHeight,
+        initialHeight,
+        scrollableInfo: fallbackScrollableInfo,
+        debug,
+      };
+    }
+
+    const initialHeight = scrollableInfo.scrollHeight;
+    let lastHeight = scrollableInfo.scrollHeight;
+    let scrollCount = 0;
+    const maxScrolls = 100;
+    let hasScrolledAtLeastOnce = false;
+
+    while (scrollCount < maxScrolls) {
+      const snapshotResult = await snapshotRoleViaPlaywright({
+        cdpUrl: opts.cdpUrl,
+        targetId: opts.targetId,
+        refsMode: "role",
+        options: { interactive: false },
+      });
+
+      const elementCount = Object.keys(snapshotResult.refs).length;
+      const heightBefore = lastHeight;
+
+      const scrollResult = await page.evaluate(
+        (info) => {
+          let scrolled = false;
+          let debugMessage = "";
+          if (info.isWindow) {
+            const maxScrollHeight = Math.max(
+              document.body.scrollHeight,
+              document.documentElement.scrollHeight,
+            );
+            const currentScrollY = Math.max(
+              window.scrollY || window.pageYOffset || 0,
+              document.documentElement.scrollTop || 0,
+            );
+            debugMessage = `Window scroll: current=${currentScrollY}, max=${maxScrollHeight}`;
+            if (currentScrollY < maxScrollHeight - 10) {
+              window.scrollTo({
+                top: maxScrollHeight,
+                left: 0,
+                behavior: "instant",
+              });
+              scrolled = true;
+              debugMessage += ` -> scrolled to ${maxScrollHeight}`;
+            } else {
+              debugMessage += " -> already at bottom";
+            }
+          } else {
+            let targetElement: Element | null = null;
+            if (info.selector) {
+              targetElement = document.querySelector(info.selector);
+              debugMessage = `Looking for element with selector: ${info.selector}`;
+            }
+            if (!targetElement) {
+              debugMessage += " -> selector not found, searching by scrollHeight";
+              const allElements = Array.from(document.querySelectorAll("*"));
+              for (const el of allElements) {
+                const style = window.getComputedStyle(el);
+                const overflow = style.overflow + style.overflowY + style.overflowX;
+                if (
+                  (overflow.includes("auto") || overflow.includes("scroll")) &&
+                  el.scrollHeight > el.clientHeight &&
+                  Math.abs(el.scrollHeight - info.scrollHeight) < 50
+                ) {
+                  targetElement = el;
+                  debugMessage += ` -> found element with scrollHeight=${el.scrollHeight}`;
+                  break;
+                }
+              }
+            } else {
+              debugMessage += " -> found by selector";
+            }
+            if (targetElement) {
+              const currentScrollTop = targetElement.scrollTop;
+              const maxScrollTop = targetElement.scrollHeight - targetElement.clientHeight;
+              debugMessage += `, currentScrollTop=${currentScrollTop}, maxScrollTop=${maxScrollTop}`;
+              if (currentScrollTop < maxScrollTop - 10) {
+                targetElement.scrollTo({
+                  top: targetElement.scrollHeight,
+                  left: 0,
+                  behavior: "instant",
+                });
+                scrolled = true;
+                debugMessage += ` -> scrolled to ${targetElement.scrollHeight}`;
+              } else {
+                debugMessage += " -> already at bottom";
+              }
+            } else {
+              debugMessage += " -> element not found";
+            }
+          }
+          return { scrolled, debugMessage };
+        },
+        scrollableInfo,
+      );
+
+      if (scrollResult.scrolled) {
+        hasScrolledAtLeastOnce = true;
+      }
+
+      await page.waitForTimeout(200);
+
+      const currentHeight = await page.evaluate((info) => {
+        if (info.isWindow) {
+          return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+        } else {
+          let targetElement: Element | null = null;
+          if (info.selector) {
+            targetElement = document.querySelector(info.selector);
+          }
+          if (!targetElement) {
+            const allElements = Array.from(document.querySelectorAll("*"));
+            for (const el of allElements) {
+              const style = window.getComputedStyle(el);
+              const overflow = style.overflow + style.overflowY + style.overflowX;
+              if (
+                (overflow.includes("auto") || overflow.includes("scroll")) &&
+                el.scrollHeight > el.clientHeight &&
+                Math.abs(el.scrollHeight - info.scrollHeight) < 50
+              ) {
+                targetElement = el;
+                break;
+              }
+            }
+          }
+          return targetElement ? targetElement.scrollHeight : info.scrollHeight;
+        }
+      }, scrollableInfo);
+
+      if (elementCount >= maxElementCount && hasScrolledAtLeastOnce) {
+        debug.push({
+          iteration: scrollCount,
+          elementCount,
+          scrolled: scrollResult.scrolled,
+          heightBefore,
+          heightAfter: currentHeight,
+          isAtBottom: false,
+          message: `Stopped: elementCount ${elementCount} >= maxElementCount ${maxElementCount}`,
+        });
+        break;
+      }
+
+      if (currentHeight > lastHeight) {
+        debug.push({
+          iteration: scrollCount,
+          elementCount,
+          scrolled: scrollResult.scrolled,
+          heightBefore,
+          heightAfter: currentHeight,
+          isAtBottom: false,
+          message: `Height increased: ${heightBefore} -> ${currentHeight}. ${scrollResult.debugMessage}`,
+        });
+        lastHeight = currentHeight;
+        scrollCount++;
+        continue;
+      }
+
+      if (currentHeight === lastHeight) {
+        const quickCheckAtBottom = await page.evaluate((info) => {
+          if (info.isWindow) {
+            const scrollHeight = Math.max(
+              document.body.scrollHeight,
+              document.documentElement.scrollHeight,
+            );
+            const clientHeight = Math.max(
+              document.body.clientHeight,
+              document.documentElement.clientHeight,
+              window.innerHeight,
+            );
+            const maxScrollTop = scrollHeight - clientHeight;
+            const currentScrollY = Math.max(
+              window.scrollY || window.pageYOffset || 0,
+              document.documentElement.scrollTop || 0,
+            );
+            return currentScrollY >= maxScrollTop - 10;
+          } else {
+            let targetElement: Element | null = null;
+            if (info.selector) {
+              targetElement = document.querySelector(info.selector);
+            }
+            if (!targetElement) {
+              const allElements = Array.from(document.querySelectorAll("*"));
+              for (const el of allElements) {
+                const style = window.getComputedStyle(el);
+                const overflow = style.overflow + style.overflowY + style.overflowX;
+                if (
+                  (overflow.includes("auto") || overflow.includes("scroll")) &&
+                  el.scrollHeight > el.clientHeight &&
+                  Math.abs(el.scrollHeight - info.scrollHeight) < 50
+                ) {
+                  targetElement = el;
+                  break;
+                }
+              }
+            }
+            if (targetElement) {
+              const currentScrollTop = targetElement.scrollTop;
+              const maxScrollTop = targetElement.scrollHeight - targetElement.clientHeight;
+              return currentScrollTop >= maxScrollTop - 10;
+            }
+            return true;
+          }
+        }, scrollableInfo);
+
+        if (quickCheckAtBottom && hasScrolledAtLeastOnce) {
+          debug.push({
+            iteration: scrollCount,
+            elementCount,
+            scrolled: scrollResult.scrolled,
+            heightBefore,
+            heightAfter: currentHeight,
+            isAtBottom: true,
+            message: `Reached bottom after scroll. ${scrollResult.debugMessage}`,
+          });
+          break;
+        }
+
+        if (!hasScrolledAtLeastOnce) {
+          debug.push({
+            iteration: scrollCount,
+            elementCount,
+            scrolled: scrollResult.scrolled,
+            heightBefore,
+            heightAfter: currentHeight,
+            isAtBottom: false,
+            message: `First scroll attempt, waiting ${waitTimeoutMs}ms. ${scrollResult.debugMessage}`,
+          });
+          await page.waitForTimeout(waitTimeoutMs);
+          const newHeight = await page.evaluate((info) => {
+            if (info.isWindow) {
+              return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+            } else {
+              let targetElement: Element | null = null;
+              if (info.selector) {
+                targetElement = document.querySelector(info.selector);
+              }
+              if (!targetElement) {
+                const allElements = Array.from(document.querySelectorAll("*"));
+                for (const el of allElements) {
+                  const style = window.getComputedStyle(el);
+                  const overflow = style.overflow + style.overflowY + style.overflowX;
+                  if (
+                    (overflow.includes("auto") || overflow.includes("scroll")) &&
+                    el.scrollHeight > el.clientHeight &&
+                    Math.abs(el.scrollHeight - info.scrollHeight) < 50
+                  ) {
+                    targetElement = el;
+                    break;
+                  }
+                }
+              }
+              return targetElement ? targetElement.scrollHeight : info.scrollHeight;
+            }
+          }, scrollableInfo);
+          if (newHeight === currentHeight) {
+            debug.push({
+              iteration: scrollCount,
+              elementCount,
+              scrolled: scrollResult.scrolled,
+              heightBefore,
+              heightAfter: currentHeight,
+              isAtBottom: false,
+              message: `Height unchanged after wait: ${currentHeight}. Stopping.`,
+            });
+            break;
+          }
+          debug.push({
+            iteration: scrollCount,
+            elementCount,
+            scrolled: scrollResult.scrolled,
+            heightBefore,
+            heightAfter: newHeight,
+            isAtBottom: false,
+            message: `Height changed after wait: ${currentHeight} -> ${newHeight}`,
+          });
+          lastHeight = newHeight;
+          scrollCount++;
+          continue;
+        }
+
+        const isAtBottom = await page.evaluate((info) => {
+          if (info.isWindow) {
+            const scrollHeight = Math.max(
+              document.body.scrollHeight,
+              document.documentElement.scrollHeight,
+            );
+            const clientHeight = Math.max(
+              document.body.clientHeight,
+              document.documentElement.clientHeight,
+              window.innerHeight,
+            );
+            const maxScrollTop = scrollHeight - clientHeight;
+            const currentScrollY = Math.max(
+              window.scrollY || window.pageYOffset || 0,
+              document.documentElement.scrollTop || 0,
+            );
+            return {
+              isAtBottom: currentScrollY >= maxScrollTop - 10,
+              currentScrollY,
+              maxScrollHeight: maxScrollTop,
+              scrollHeight,
+              clientHeight,
+              isWindow: true,
+            };
+          } else {
+            let targetElement: Element | null = null;
+            if (info.selector) {
+              targetElement = document.querySelector(info.selector);
+            }
+            if (!targetElement) {
+              const allElements = Array.from(document.querySelectorAll("*"));
+              for (const el of allElements) {
+                const style = window.getComputedStyle(el);
+                const overflow = style.overflow + style.overflowY + style.overflowX;
+                if (
+                  (overflow.includes("auto") || overflow.includes("scroll")) &&
+                  el.scrollHeight > el.clientHeight &&
+                  Math.abs(el.scrollHeight - info.scrollHeight) < 50
+                ) {
+                  targetElement = el;
+                  break;
+                }
+              }
+            }
+            if (targetElement) {
+              const currentScrollTop = targetElement.scrollTop;
+              const maxScrollTop = targetElement.scrollHeight - targetElement.clientHeight;
+              return {
+                isAtBottom: currentScrollTop >= maxScrollTop - 10,
+                currentScrollY: currentScrollTop,
+                maxScrollHeight: maxScrollTop,
+              };
+            }
+            return {
+              isAtBottom: true,
+              currentScrollY: 0,
+              maxScrollHeight: 0,
+              isWindow: false,
+            };
+          }
+        }, scrollableInfo);
+
+        const scrollInfo = isAtBottom.isWindow
+          ? `Scroll position: ${isAtBottom.currentScrollY}/${isAtBottom.maxScrollHeight} (scrollHeight=${isAtBottom.scrollHeight}, clientHeight=${isAtBottom.clientHeight})`
+          : `Scroll position: ${isAtBottom.currentScrollY}/${isAtBottom.maxScrollHeight}`;
+
+        debug.push({
+          iteration: scrollCount,
+          elementCount,
+          scrolled: scrollResult.scrolled,
+          heightBefore,
+          heightAfter: currentHeight,
+          isAtBottom: isAtBottom.isAtBottom,
+          message: `Height unchanged: ${currentHeight}. ${scrollInfo}. ${scrollResult.debugMessage}`,
+        });
+
+        if (isAtBottom.isAtBottom) {
+          break;
+        }
+      }
+
+      lastHeight = currentHeight;
+      scrollCount++;
+    }
+
+    return {
+      scrolled: hasScrolledAtLeastOnce,
+      scrollCount,
+      finalHeight: lastHeight,
+      initialHeight,
+      scrollableInfo,
+      debug,
+    };
+  } catch (err) {
+    throw toAIFriendlyError(err, "scrollToBottom");
   }
 }
 

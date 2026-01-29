@@ -65,6 +65,7 @@ export {
   resizeViewportViaPlaywright,
   responseBodyViaPlaywright,
   scrollIntoViewViaPlaywright,
+  scrollToBottomViaPlaywright,
   selectOptionViaPlaywright,
   setDeviceViaPlaywright,
   setExtraHTTPHeadersViaPlaywright,

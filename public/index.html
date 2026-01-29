@@ -538,10 +538,10 @@
                 method: 'POST',
                 path: '/act',
                 title: '执行操作',
-                description: '执行浏览器操作（点击、输入、拖拽等）',
+                description: '执行浏览器操作（点击、输入、拖拽、滚动等）。支持的 kind 类型：click, type, press, hover, scrollIntoView, scrollToBottom, drag, select, fill, resize, wait, evaluate, close',
                 params: [
                     { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
-                    { name: 'request', type: 'json', required: true, default: '{\n  "kind": "click",\n  "targetId": "",\n  "ref": "e12"\n}', description: '操作请求 JSON（请求体）' }
+                    { name: 'request', type: 'json', required: true, default: '{\n  "kind": "click",\n  "targetId": "",\n  "ref": "e12"\n}', description: '操作请求 JSON（请求体）。示例：\n- 点击: {"kind": "click", "targetId": "", "ref": "e12"}\n- 输入: {"kind": "type", "targetId": "", "ref": "e23", "text": "Hello"}\n- 滚动到底部: {"kind": "scrollToBottom", "targetId": "", "maxElementCount": 500, "waitTimeoutMs": 5000}\n- 滚动到视图: {"kind": "scrollIntoView", "targetId": "", "ref": "e12"}' }
                 ]
             },
             {

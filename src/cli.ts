@@ -28,7 +28,6 @@ This software is modified from the original work of Peter Steinberger (2025).
 Original project address: https://github.com/moltbot/moltbot 
 */
 
-#!/usr/bin/env node
 
 /**
  * Standalone Browser Control Server CLI

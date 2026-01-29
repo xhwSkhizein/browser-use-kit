@@ -153,6 +153,27 @@ export function registerBrowserAgentActRoutes(app: express.Express, ctx: Browser
           await pw.scrollIntoViewViaPlaywright(scrollRequest);
           return res.json({ ok: true, targetId: tab.targetId });
         }
+        case "scrollToBottom": {
+          const maxElementCount = toNumber(body.maxElementCount);
+          const waitTimeoutMs = toNumber(body.waitTimeoutMs);
+          const scrollRequest: Parameters<typeof pw.scrollToBottomViaPlaywright>[0] = {
+            cdpUrl,
+            targetId: tab.targetId,
+            maxElementCount: maxElementCount ?? undefined,
+            waitTimeoutMs: waitTimeoutMs ?? undefined,
+          };
+          const result = await pw.scrollToBottomViaPlaywright(scrollRequest);
+          return res.json({
+            ok: true,
+            targetId: tab.targetId,
+            scrolled: result.scrolled,
+            scrollCount: result.scrollCount,
+            finalHeight: result.finalHeight,
+            initialHeight: result.initialHeight,
+            scrollableInfo: result.scrollableInfo,
+            debug: result.debug,
+          });
+        }
         case "drag": {
           const startRef = toStringOrEmpty(body.startRef);
           const endRef = toStringOrEmpty(body.endRef);
