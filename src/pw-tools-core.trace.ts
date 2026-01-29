@@ -1,0 +1,67 @@
+/*
+# MIT License
+## Original Copyright
+Copyright (c) 2025 Peter Steinberger
+## Modified Copyright
+Copyright (c) 2026 xhwSkhizein）
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Code Source
+This software is modified from the original work of Peter Steinberger (2025).
+Original project address: https://github.com/moltbot/moltbot 
+*/
+
+import { ensureContextState, getPageForTargetId } from "./pw-session.js";
+
+export async function traceStartViaPlaywright(opts: {
+  cdpUrl: string;
+  targetId?: string;
+  screenshots?: boolean;
+  snapshots?: boolean;
+  sources?: boolean;
+}): Promise<void> {
+  const page = await getPageForTargetId(opts);
+  const context = page.context();
+  const ctxState = ensureContextState(context);
+  if (ctxState.traceActive) {
+    throw new Error("Trace already running. Stop the current trace before starting a new one.");
+  }
+  await context.tracing.start({
+    screenshots: opts.screenshots ?? true,
+    snapshots: opts.snapshots ?? true,
+    sources: opts.sources ?? false,
+  });
+  ctxState.traceActive = true;
+}
+
+export async function traceStopViaPlaywright(opts: {
+  cdpUrl: string;
+  targetId?: string;
+  path: string;
+}): Promise<void> {
+  const page = await getPageForTargetId(opts);
+  const context = page.context();
+  const ctxState = ensureContextState(context);
+  if (!ctxState.traceActive) {
+    throw new Error("No active trace. Start a trace before stopping it.");
+  }
+  await context.tracing.stop({ path: opts.path });
+  ctxState.traceActive = false;
+}

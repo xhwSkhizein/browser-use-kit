@@ -1,4 +1,6 @@
-# Browser Control Server (Standalone)
+# Browser Control Server
+
+> copy from [Clawdbot(Moltbot)](https://github.com/moltbot/moltbot)
 
 A standalone browser control server that provides HTTP APIs for Python agents and other external services to control Chrome/Brave/Edge/Chromium browsers.
 

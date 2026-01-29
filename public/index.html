@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Control API Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .config-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .config-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .api-list {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .api-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .api-item:hover {
+            background: #f8f9fa;
+        }
+
+        .api-item.active {
+            background: #e8eaf6;
+            border-left-color: #667eea;
+            font-weight: 500;
+        }
+
+        .api-item .method {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .method.get { background: #4caf50; color: white; }
+        .method.post { background: #2196f3; color: white; }
+        .method.delete { background: #f44336; color: white; }
+
+        .api-item .path {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .content {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .api-detail {
+            display: none;
+        }
+
+        .api-detail.active {
+            display: block;
+        }
+
+        .api-detail h2 {
+            font-size: 22px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .api-detail .method-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .api-detail .path-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: #666;
+        }
+
+        .api-detail .description {
+            margin: 20px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .params-section {
+            margin: 25px 0;
+        }
+
+        .params-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .param-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .param-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .param-item .param-info {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .param-item input,
+        .param-item textarea,
+        .param-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .param-item textarea {
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .param-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .response-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+        }
+
+        .response-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .response-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .response-box.success {
+            border-left: 4px solid #4caf50;
+        }
+
+        .response-box.error {
+            border-left: 4px solid #f44336;
+        }
+
+        .response-box.loading {
+            border-left: 4px solid #ff9800;
+        }
+
+        .status-info {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-200 { background: #4caf50; color: white; }
+        .status-400 { background: #ff9800; color: white; }
+        .status-401 { background: #f44336; color: white; }
+        .status-404 { background: #f44336; color: white; }
+        .status-500 { background: #f44336; color: white; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .copy-btn {
+            float: right;
+            padding: 6px 12px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover {
+            background: #5a6268;
+        }
+
+        @media (max-width: 768px) {
+            .api-list {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦞 Browser Control API Tester</h1>
+            <p>测试浏览器控制服务器的所有 HTTP API 接口</p>
+        </div>
+
+        <div class="config-panel">
+            <h2>服务器配置</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" id="baseUrl" value="" placeholder="自动检测（当前页面地址）">
+                    <small style="color: #999; font-size: 12px; display: block; margin-top: 4px;">留空将自动使用当前页面地址</small>
+                </div>
+                <div class="form-group">
+                    <label>Profile</label>
+                    <input type="text" id="profile" value="clawd" placeholder="clawd">
+                </div>
+                <div class="form-group">
+                    <label>Auth Token (可选)</label>
+                    <input type="text" id="authToken" placeholder="Bearer token">
+                </div>
+            </div>
+        </div>
+
+        <div class="api-list">
+            <div class="sidebar">
+                <h2>API 列表</h2>
+                <div id="apiList"></div>
+            </div>
+
+            <div class="content">
+                <div id="apiDetails"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apis = [
+            {
+                id: 'status',
+                method: 'GET',
+                path: '/',
+                title: '获取状态',
+                description: '获取浏览器控制服务器和指定 profile 的状态',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称' }
+                ]
+            },
+            {
+                id: 'start',
+                method: 'POST',
+                path: '/start',
+                title: '启动浏览器',
+                description: '启动指定 profile 的浏览器实例。可以配置浏览器可执行文件路径、用户数据目录、无头模式等选项。',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'executablePath', type: 'string', required: false, default: '', description: '浏览器可执行文件路径（请求体）。示例：macOS: /Applications/Brave Browser.app/Contents/MacOS/Brave Browser，Linux: /usr/bin/google-chrome，Windows: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe。留空则自动检测系统默认浏览器。' },
+                    { name: 'userDataDir', type: 'string', required: false, default: '', description: '用户数据目录路径（请求体）。浏览器配置、缓存、Cookie 等数据存储位置。留空使用默认路径：~/.browser-control/browser/<profile-name>/user-data' },
+                    { name: 'headless', type: 'checkbox', required: false, default: false, description: '无头模式（请求体）。启用后浏览器在后台运行，不显示窗口。' },
+                    { name: 'noSandbox', type: 'checkbox', required: false, default: false, description: '禁用沙箱（请求体）。仅在 Docker 或受限环境中需要时启用。' },
+                    { name: 'cdpPort', type: 'number', required: false, default: '', description: 'CDP 端口（请求体）。Chrome DevTools Protocol 监听端口。留空使用 profile 默认端口（通常为 18800+）' }
+                ]
+            },
+            {
+                id: 'stop',
+                method: 'POST',
+                path: '/stop',
+                title: '停止浏览器',
+                description: '停止指定 profile 的浏览器实例',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称' }
+                ]
+            },
+            {
+                id: 'profiles',
+                method: 'GET',
+                path: '/profiles',
+                title: '列出所有 Profiles',
+                description: '获取所有可用的 browser profiles',
+                params: []
+            },
+            {
+                id: 'tabs',
+                method: 'GET',
+                path: '/tabs',
+                title: '列出所有标签页',
+                description: '获取指定 profile 的所有标签页',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称' }
+                ]
+            },
+            {
+                id: 'open-tab',
+                method: 'POST',
+                path: '/tabs/open',
+                title: '打开新标签页',
+                description: '打开一个新标签页并导航到指定 URL',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'url', type: 'string', required: true, default: 'https://example.com', description: '要打开的 URL（请求体）' }
+                ]
+            },
+            {
+                id: 'focus-tab',
+                method: 'POST',
+                path: '/tabs/focus',
+                title: '聚焦标签页',
+                description: '将焦点切换到指定标签页',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'targetId', type: 'string', required: true, default: '', description: '目标标签页 ID（请求体）' }
+                ]
+            },
+            {
+                id: 'close-tab',
+                method: 'DELETE',
+                path: '/tabs/:targetId',
+                title: '关闭标签页',
+                description: '关闭指定的标签页',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'targetId', type: 'string', required: true, default: '', description: '目标标签页 ID（路径参数）' }
+                ]
+            },
+            {
+                id: 'snapshot',
+                method: 'GET',
+                path: '/snapshot',
+                title: '获取页面快照',
+                description: '获取当前页面的 AI 快照或 ARIA 树',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID' },
+                    { name: 'format', type: 'select', required: false, default: 'ai', options: ['ai', 'aria'], description: '快照格式：ai 或 aria' },
+                    { name: 'limit', type: 'number', required: false, default: '', description: '限制节点数量' },
+                    { name: 'maxChars', type: 'number', required: false, default: '', description: '最大字符数' },
+                    { name: 'refs', type: 'select', required: false, default: '', options: ['role', 'aria'], description: '引用类型：role 或 aria' },
+                    { name: 'interactive', type: 'checkbox', required: false, default: false, description: '仅返回可交互元素' },
+                    { name: 'compact', type: 'checkbox', required: false, default: false, description: '紧凑模式' },
+                    { name: 'depth', type: 'number', required: false, default: '', description: '最大深度' },
+                    { name: 'selector', type: 'string', required: false, default: '', description: 'CSS 选择器' },
+                    { name: 'frame', type: 'string', required: false, default: '', description: 'iframe 选择器' },
+                    { name: 'labels', type: 'checkbox', required: false, default: false, description: '包含标签截图' },
+                    { name: 'mode', type: 'select', required: false, default: '', options: ['efficient'], description: '模式：efficient' }
+                ]
+            },
+            {
+                id: 'screenshot',
+                method: 'POST',
+                path: '/screenshot',
+                title: '截图',
+                description: '捕获页面或元素的截图',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' },
+                    { name: 'fullPage', type: 'checkbox', required: false, default: false, description: '是否全页截图（请求体）' },
+                    { name: 'ref', type: 'string', required: false, default: '', description: '元素引用（请求体）' },
+                    { name: 'element', type: 'string', required: false, default: '', description: 'CSS 选择器（请求体）' },
+                    { name: 'type', type: 'select', required: false, default: 'png', options: ['png', 'jpeg'], description: '图片类型（请求体）' }
+                ]
+            },
+            {
+                id: 'navigate',
+                method: 'POST',
+                path: '/navigate',
+                title: '导航',
+                description: '导航到指定 URL',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'url', type: 'string', required: true, default: 'https://example.com', description: '目标 URL（请求体）' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' }
+                ]
+            },
+            {
+                id: 'act',
+                method: 'POST',
+                path: '/act',
+                title: '执行操作',
+                description: '执行浏览器操作（点击、输入、拖拽等）',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'request', type: 'json', required: true, default: '{\n  "kind": "click",\n  "targetId": "",\n  "ref": "e12"\n}', description: '操作请求 JSON（请求体）' }
+                ]
+            },
+            {
+                id: 'console',
+                method: 'GET',
+                path: '/console',
+                title: '获取控制台消息',
+                description: '获取浏览器控制台消息',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID' },
+                    { name: 'level', type: 'string', required: false, default: '', description: '日志级别（error, warn, info, log）' }
+                ]
+            },
+            {
+                id: 'pdf',
+                method: 'POST',
+                path: '/pdf',
+                title: '生成 PDF',
+                description: '将当前页面导出为 PDF',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' }
+                ]
+            },
+            {
+                id: 'cookies',
+                method: 'GET',
+                path: '/cookies',
+                title: '获取 Cookies',
+                description: '获取当前页面的 Cookies',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID' }
+                ]
+            },
+            {
+                id: 'set-cookie',
+                method: 'POST',
+                path: '/cookies/set',
+                title: '设置 Cookie',
+                description: '设置一个 Cookie',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'body', type: 'json', required: true, default: '{\n  "name": "session",\n  "value": "abc123",\n  "url": "https://example.com"\n}', description: 'Cookie 数据 JSON（请求体）' }
+                ]
+            },
+            {
+                id: 'clear-cookies',
+                method: 'POST',
+                path: '/cookies/clear',
+                title: '清除 Cookies',
+                description: '清除所有 Cookies',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' }
+                ]
+            },
+            {
+                id: 'upload',
+                method: 'POST',
+                path: '/hooks/file-chooser',
+                title: '文件上传',
+                description: '准备文件选择器并上传文件。可以等待文件选择器出现并自动上传，或直接设置文件到指定的输入元素。',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'paths', type: 'json', required: true, default: '["/path/to/file.txt"]', description: '文件路径数组（请求体）。示例：["/tmp/file1.txt", "/tmp/file2.pdf"]' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' },
+                    { name: 'ref', type: 'string', required: false, default: '', description: '元素引用（请求体）。触发文件选择器的元素引用（如 e12）。如果提供，将点击该元素以触发文件选择器' },
+                    { name: 'inputRef', type: 'string', required: false, default: '', description: '输入元素引用（请求体）。直接设置文件到指定的输入元素引用（不能与 ref 同时使用）' },
+                    { name: 'element', type: 'string', required: false, default: '', description: 'CSS 选择器（请求体）。直接设置文件到指定的 CSS 选择器元素（不能与 ref 同时使用）' },
+                    { name: 'timeoutMs', type: 'number', required: false, default: '', description: '超时时间（毫秒）（请求体）。等待文件选择器出现的超时时间，默认 120000' }
+                ]
+            },
+            {
+                id: 'dialog',
+                method: 'POST',
+                path: '/hooks/dialog',
+                title: '对话框处理',
+                description: '准备处理浏览器对话框（alert、confirm、prompt）。当对话框出现时自动接受或拒绝。',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'accept', type: 'checkbox', required: true, default: true, description: '是否接受对话框（请求体）。true 表示接受，false 表示拒绝' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' },
+                    { name: 'promptText', type: 'string', required: false, default: '', description: '提示文本（请求体）。对于 prompt 对话框，要输入的文本' },
+                    { name: 'timeoutMs', type: 'number', required: false, default: '', description: '超时时间（毫秒）（请求体）。等待对话框出现的超时时间，默认 120000' }
+                ]
+            },
+            {
+                id: 'evaluate',
+                method: 'POST',
+                path: '/evaluate',
+                title: '执行 JavaScript',
+                description: '在浏览器中执行 JavaScript 代码。可以执行任意 JavaScript 代码并返回结果。如果提供了 ref，代码将在指定元素上执行。',
+                params: [
+                    { name: 'profile', type: 'string', required: false, default: 'clawd', description: 'Profile 名称（查询参数）' },
+                    { name: 'code', type: 'json', required: true, default: '() => {\n  return document.title;\n}', description: '要执行的 JavaScript 代码（请求体）。可以是函数表达式、箭头函数或任何 JavaScript 表达式。示例：\n- () => document.title\n- () => { return window.location.href; }\n- () => document.querySelector("h1")?.textContent\n- (el) => el.textContent（当提供 ref 时，元素作为参数）' },
+                    { name: 'targetId', type: 'string', required: false, default: '', description: '目标标签页 ID（请求体）' },
+                    { name: 'ref', type: 'string', required: false, default: '', description: '元素引用（请求体）。如果提供，代码将在该元素上执行，元素将作为第一个参数传递给函数。例如：ref="e12" 时，代码可以接收元素作为参数：(el) => el.textContent' }
+                ]
+            }
+        ];
+
+        let currentApi = null;
+
+        function init() {
+            renderApiList();
+            if (apis.length > 0) {
+                selectApi(apis[0].id);
+            }
+        }
+
+        function renderApiList() {
+            const listEl = document.getElementById('apiList');
+            listEl.innerHTML = apis.map(api => `
+                <div class="api-item" onclick="selectApi('${api.id}')" id="item-${api.id}">
+                    <span class="method ${api.method.toLowerCase()}">${api.method}</span>
+                    <span class="path">${api.path}</span>
+                </div>
+            `).join('');
+        }
+
+        function selectApi(apiId) {
+            currentApi = apis.find(a => a.id === apiId);
+            
+            // Update sidebar
+            document.querySelectorAll('.api-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`item-${apiId}`).classList.add('active');
+            
+            renderApiDetail();
+        }
+
+        function renderApiDetail() {
+            if (!currentApi) return;
+
+            const detailEl = document.getElementById('apiDetails');
+            detailEl.innerHTML = `
+                <div class="api-detail active">
+                    <h2>
+                        <span class="method-badge ${currentApi.method.toLowerCase()}">${currentApi.method}</span>
+                        <span class="path-badge">${currentApi.path}</span>
+                    </h2>
+                    <div class="description">${currentApi.description}</div>
+                    
+                    <div class="params-section">
+                        <h3>参数</h3>
+                        ${renderParams()}
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="sendRequest()">发送请求</button>
+                    <button class="btn btn-secondary" onclick="clearResponse()" style="margin-left: 10px;">清除响应</button>
+                    
+                    <div class="response-section">
+                        <h3>响应结果</h3>
+                        <div id="responseBox" class="response-box"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderParams() {
+            if (!currentApi.params || currentApi.params.length === 0) {
+                return '<div style="color: #999; padding: 20px;">此接口无需参数</div>';
+            }
+
+            return currentApi.params.map(param => {
+                const profile = document.getElementById('profile').value;
+                const defaultValue = param.name === 'profile' ? profile : (param.default || '');
+                
+                let inputHtml = '';
+                if (param.type === 'select') {
+                    const options = param.options.map(opt => 
+                        `<option value="${opt}" ${opt === param.default ? 'selected' : ''}>${opt}</option>`
+                    ).join('');
+                    inputHtml = `<select id="param-${param.name}" class="param-input">${options}</select>`;
+                } else if (param.type === 'checkbox') {
+                    inputHtml = `<label><input type="checkbox" id="param-${param.name}" class="param-input" ${param.default ? 'checked' : ''}> ${param.description}</label>`;
+                } else if (param.type === 'json') {
+                    inputHtml = `<textarea id="param-${param.name}" class="param-input" placeholder='${param.description}'>${defaultValue}</textarea>`;
+                } else if (param.type === 'number') {
+                    inputHtml = `<input type="number" id="param-${param.name}" class="param-input" value="${defaultValue}" placeholder="${param.description}">`;
+                } else {
+                    // For start endpoint, add helpful placeholders
+                    let placeholder = param.description;
+                    if (currentApi.id === 'start' && param.name === 'executablePath') {
+                        if (navigator.platform.toLowerCase().includes('mac')) {
+                            placeholder = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser';
+                        } else if (navigator.platform.toLowerCase().includes('linux')) {
+                            placeholder = '/usr/bin/google-chrome';
+                        } else if (navigator.platform.toLowerCase().includes('win')) {
+                            placeholder = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+                        }
+                    } else if (currentApi.id === 'start' && param.name === 'userDataDir') {
+                        placeholder = '~/.browser-control/browser/clawd/user-data (留空使用默认)';
+                    }
+                    inputHtml = `<input type="text" id="param-${param.name}" class="param-input" value="${defaultValue}" placeholder="${placeholder}">`;
+                }
+
+                return `
+                    <div class="param-item">
+                        <label>${param.name} ${param.required ? '<span style="color: red;">*</span>' : ''}</label>
+                        <div class="param-info">${param.description}</div>
+                        ${inputHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function sendRequest() {
+            if (!currentApi) return;
+
+            // Auto-detect base URL from current page if not set
+            let baseUrl = document.getElementById('baseUrl').value.trim();
+            if (!baseUrl) {
+                baseUrl = window.location.origin;
+                document.getElementById('baseUrl').value = baseUrl;
+            }
+            const authToken = document.getElementById('authToken').value.trim();
+            const defaultProfile = document.getElementById('profile').value.trim();
+
+            const responseBox = document.getElementById('responseBox');
+            responseBox.className = 'response-box loading';
+            responseBox.innerHTML = '<div style="color: #ff9800;">⏳ 发送请求中...</div>';
+
+            try {
+                const url = buildUrl(baseUrl, currentApi.path);
+                const options = buildRequestOptions(currentApi.method, authToken, defaultProfile);
+
+                const response = await fetch(url, options);
+                const contentType = response.headers.get('content-type');
+                
+                let responseData;
+                if (contentType && contentType.includes('application/json')) {
+                    responseData = await response.json();
+                } else {
+                    responseData = await response.text();
+                }
+
+                const statusClass = response.ok ? 'success' : 'error';
+                const statusText = response.ok ? '✓ 成功' : '✗ 失败';
+                
+                responseBox.className = `response-box ${statusClass}`;
+                responseBox.innerHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <strong>${statusText}</strong>
+                        <span class="status-info status-${response.status}">HTTP ${response.status}</span>
+                        <button class="copy-btn" onclick="copyResponse()">复制</button>
+                    </div>
+                    <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${JSON.stringify(responseData, null, 2)}</pre>
+                `;
+            } catch (error) {
+                responseBox.className = 'response-box error';
+                responseBox.innerHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <strong>✗ 请求失败</strong>
+                        <button class="copy-btn" onclick="copyResponse()">复制</button>
+                    </div>
+                    <pre style="margin: 0; color: #f44336;">${error.message}</pre>
+                `;
+            }
+        }
+
+        function buildUrl(baseUrl, path) {
+            const profile = document.getElementById('profile').value.trim();
+            const url = new URL(path, baseUrl);
+            
+            // Handle path parameters
+            if (path.includes(':targetId')) {
+                const targetId = document.getElementById('param-targetId')?.value.trim() || '';
+                url.pathname = url.pathname.replace(':targetId', encodeURIComponent(targetId));
+            }
+            
+            // Add query parameters
+            currentApi.params.forEach(param => {
+                if (param.name === 'profile' || (param.name !== 'url' && param.name !== 'targetId' && param.name !== 'request' && param.name !== 'body' && currentApi.method === 'GET')) {
+                    const value = getParamValue(param.name);
+                    if (value !== null && value !== '' && value !== false) {
+                        url.searchParams.set(param.name, String(value));
+                    }
+                }
+            });
+            
+            return url.toString();
+        }
+
+        function buildRequestOptions(method, authToken, defaultProfile) {
+            const options = {
+                method: method,
+                headers: {}
+            };
+
+            if (authToken) {
+                options.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            // Build body for POST/PUT/DELETE
+            if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                const body = {};
+                
+                currentApi.params.forEach(param => {
+                    if (param.name === 'profile') return; // Skip profile, it's in query
+                    
+                    const value = getParamValue(param.name);
+                    
+                    if (param.name === 'request' || param.name === 'body') {
+                        // JSON body
+                        try {
+                            const jsonValue = value ? JSON.parse(value) : {};
+                            Object.assign(body, jsonValue);
+                        } catch (e) {
+                            // If not valid JSON, treat as regular param
+                            if (value !== null && value !== '' && value !== false) {
+                                body[param.name] = value;
+                            }
+                        }
+                    } else if (param.type === 'json' && param.name !== 'request' && param.name !== 'body') {
+                        // JSON type param (like paths array or code string)
+                        if (param.name === 'code' || param.name === 'fn') {
+                            // For code/fn, treat as string (JavaScript code)
+                            if (value !== null && value !== '') {
+                                body[param.name] = value;
+                            }
+                        } else {
+                            // For other JSON params, try to parse as JSON
+                            try {
+                                const jsonValue = value ? JSON.parse(value) : null;
+                                if (jsonValue !== null) {
+                                    body[param.name] = jsonValue;
+                                }
+                            } catch (e) {
+                                // If not valid JSON, skip or use as string
+                                if (value !== null && value !== '') {
+                                    body[param.name] = value;
+                                }
+                            }
+                        }
+                    } else if (param.name !== 'targetId' || method !== 'DELETE') {
+                        // Regular body param
+                        // For start endpoint, include config params (skip empty strings, include booleans)
+                        if (currentApi.id === 'start') {
+                            if (param.type === 'checkbox') {
+                                // Always include checkbox values (true/false)
+                                body[param.name] = value === true;
+                            } else if (param.type === 'number') {
+                                // Include numbers only if they have a value
+                                if (value !== null && value !== '') {
+                                    const numValue = Number(value);
+                                    if (Number.isFinite(numValue)) {
+                                        body[param.name] = numValue;
+                                    }
+                                }
+                            } else if (value !== null && value !== '') {
+                                // Include non-empty strings
+                                body[param.name] = value;
+                            }
+                        } else {
+                            // For other endpoints, only include non-empty values
+                            if (value !== null && value !== '' && value !== false) {
+                                body[param.name] = value;
+                            }
+                        }
+                    }
+                });
+
+                if (Object.keys(body).length > 0) {
+                    options.headers['Content-Type'] = 'application/json';
+                    options.body = JSON.stringify(body);
+                }
+            }
+
+            return options;
+        }
+
+        function getParamValue(paramName) {
+            const input = document.getElementById(`param-${paramName}`);
+            if (!input) return null;
+
+            if (input.type === 'checkbox') {
+                return input.checked;
+            } else if (input.tagName === 'SELECT') {
+                return input.value || null;
+            } else {
+                return input.value.trim() || null;
+            }
+        }
+
+        function clearResponse() {
+            document.getElementById('responseBox').innerHTML = '';
+            document.getElementById('responseBox').className = 'response-box';
+        }
+
+        function copyResponse() {
+            const responseBox = document.getElementById('responseBox');
+            const text = responseBox.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '已复制!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // Auto-detect base URL on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const baseUrlInput = document.getElementById('baseUrl');
+            if (!baseUrlInput.value.trim()) {
+                baseUrlInput.value = window.location.origin;
+            }
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
