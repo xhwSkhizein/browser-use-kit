@@ -449,4 +449,4 @@ Test interface features:
 
 ## License
 
-Consistent with the main project.
+MIT
