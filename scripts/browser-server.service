@@ -1,0 +1,15 @@
+[Unit]
+Description=Browser Control Server
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/path/to/browser-use-kit
+ExecStart=/usr/bin/bun run dist/cli.js --host 127.0.0.1 --port 18791 --config /path/to/browser-use-kit/config.json
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

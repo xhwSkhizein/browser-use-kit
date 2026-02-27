@@ -1,0 +1,25 @@
+{
+  "browser": {
+    "enabled": true,
+    "controlUrl": "http://127.0.0.1:18791",
+    "controlToken": "your-secret-token",
+    "headless": false,
+    "noSandbox": false,
+    "attachOnly": false,
+    "defaultProfile": "clawd",
+    "color": "#FF4500",
+    "remoteCdpTimeoutMs": 1500,
+    "remoteCdpHandshakeTimeoutMs": 3000,
+    "profiles": {
+      "clawd": {
+        "cdpPort": 18800,
+        "color": "#FF4500"
+      },
+      "chrome": {
+        "driver": "extension",
+        "cdpUrl": "http://127.0.0.1:18792",
+        "color": "#00AA00"
+      }
+    }
+  }
+}

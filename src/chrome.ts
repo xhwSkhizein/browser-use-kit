@@ -35,6 +35,7 @@ import path from "node:path";
 import WebSocket from "ws";
 
 import { ensurePortAvailable } from "./infra-ports.js";
+import { parseBooleanValue } from "./utils.js";
 import { CONFIG_DIR } from "./utils.js";
 import { getHeadersWithAuth, normalizeCdpWsUrl } from "./cdp.js";
 import { appendCdpPath } from "./cdp.helpers.js";
@@ -50,12 +51,31 @@ import {
 import type { ResolvedBrowserConfig, ResolvedBrowserProfile } from "./config.js";
 import { DEFAULT_CLAWD_BROWSER_COLOR, DEFAULT_CLAWD_BROWSER_PROFILE_NAME } from "./constants.js";
 
-// Simple logger (can be replaced with a proper logging library)
+const BROWSER_DEBUG = parseBooleanValue(process.env.BROWSER_DEBUG);
+
 const log = {
   info: (...args: unknown[]) => console.log("[browser:chrome]", ...args),
   warn: (...args: unknown[]) => console.warn("[browser:chrome]", ...args),
   error: (...args: unknown[]) => console.error("[browser:chrome]", ...args),
+  debug: (...args: unknown[]) => {
+    if (BROWSER_DEBUG) console.log("[browser:chrome:debug]", ...args);
+  },
 };
+
+function collectChromeOutput(proc: ChildProcessWithoutNullStreams): string[] {
+  const lines: string[] = [];
+  const onData = (chunk: Buffer | string) => {
+    const text = chunk.toString("utf8");
+    const newLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    lines.push(...newLines);
+    if (BROWSER_DEBUG) {
+      for (const line of newLines) log.debug("[chrome stderr]", line);
+    }
+  };
+  proc.stderr.on("data", onData);
+  proc.stdout.on("data", onData);
+  return lines;
+}
 
 export type { BrowserExecutable } from "./chrome.executables.js";
 export {
@@ -322,7 +342,12 @@ export async function launchClawdChrome(
   }
 
   const proc = spawnOnce();
-  // Wait for CDP to come up.
+  const chromeOutput = collectChromeOutput(proc);
+
+  log.debug(
+    `launching Chrome: ${exe.path} --remote-debugging-port=${effectiveCdpPort} headless=${launchOpts?.headless ?? resolved.headless}`,
+  );
+
   const effectiveCdpUrl = `http://127.0.0.1:${effectiveCdpPort}`;
   const readyDeadline = Date.now() + 15_000;
   while (Date.now() < readyDeadline) {
@@ -336,8 +361,12 @@ export async function launchClawdChrome(
     } catch {
       // ignore
     }
+    const stderrPreview =
+      chromeOutput.length > 0
+        ? ` Chrome stderr:\n${chromeOutput.slice(-20).join("\n")}`
+        : " (no Chrome output captured)";
     throw new Error(
-      `Failed to start Chrome CDP on port ${effectiveCdpPort} for profile "${profile.name}".`,
+      `Failed to start Chrome CDP on port ${effectiveCdpPort} for profile "${profile.name}".${stderrPreview}`,
     );
   }
 

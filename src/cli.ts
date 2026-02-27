@@ -97,6 +97,9 @@ Example:
   if (authToken) {
     console.log("Authentication enabled (Bearer token)");
   }
+  if (!process.env.BROWSER_DEBUG) {
+    console.log("Tip: set BROWSER_DEBUG=1 to see Chrome launch logs when starting a profile.");
+  }
 
   const bridge = await startBrowserBridgeServer({
     resolved,
