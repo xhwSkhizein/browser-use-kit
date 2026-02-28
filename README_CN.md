@@ -20,26 +20,26 @@
 
 ```bash
 cd browser-use-kit
-bun install
+npm install
 ```
 
 ### 构建
 
 ```bash
-bun run build
+npm run build
 ```
 
 ### 启动服务器
 
 ```bash
 # 使用默认配置（127.0.0.1:18791）
-bun start
+npm start
 
 # 自定义配置
-bun start -- --host 0.0.0.0 --port 8080 --token my-secret-token
+npm start -- --host 0.0.0.0 --port 8080 --token my-secret-token
 
 # 使用配置文件
-bun start -- --config /path/to/config.json
+npm start -- --config /path/to/config.json
 ```
 
 ### CLI 选项
@@ -435,7 +435,8 @@ browser-use-kit/
 
 ## 依赖
 
-- Bun >= 1.0.0
+- Node.js >= 22.0.0
+- npm >= 10
 - express: HTTP 服务器
 - playwright-core: 浏览器自动化
 - ws: WebSocket 客户端
@@ -456,9 +457,9 @@ browser-use-kit/
 **只需启动浏览器控制服务器，测试界面会自动可用！**
 
 ```bash
-bun install
-bun run build
-bun start
+npm install
+npm run build
+npm start
 ```
 
 然后在浏览器中打开 `http://127.0.0.1:18791/`（或你配置的服务器地址）即可使用测试界面。

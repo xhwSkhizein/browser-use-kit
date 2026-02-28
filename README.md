@@ -20,26 +20,26 @@ The system supports **clawd management mode** (standalone browsers), where each 
 
 ```bash
 cd browser-use-standalone
-bun install
+npm install
 ```
 
 ### Build
 
 ```bash
-bun run build
+npm run build
 ```
 
 ### Start the Server
 
 ```bash
 # Default configuration (127.0.0.1:18791)
-bun start
+npm start
 
 # Custom configuration
-bun start -- --host 0.0.0.0 --port 8080 --token my-secret-token
+npm start -- --host 0.0.0.0 --port 8080 --token my-secret-token
 
 # Start with config file
-bun start -- --config /path/to/config.json
+npm start -- --config /path/to/config.json
 ```
 
 ### CLI Options
@@ -435,7 +435,8 @@ browser-use-standalone/
 
 ## Dependencies
 
-- Bun >= 1.0.0
+- Node.js >= 22.0.0
+- npm >= 10
 - express: HTTP server
 - playwright-core: Browser automation
 - ws: WebSocket client
@@ -456,9 +457,9 @@ The project includes a built-in web test interface for conveniently testing all 
 **Just start the browser control server, the test interface will be available automatically!**
 
 ```bash
-bun install
-bun run build
-bun start
+npm install
+npm run build
+npm start
 ```
 
 Then open `http://127.0.0.1:18791/` (or your configured server address) in a browser to use the test interface.

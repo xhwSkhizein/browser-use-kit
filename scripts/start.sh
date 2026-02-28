@@ -60,4 +60,4 @@ ARGS=("--host" "$HOST" "--port" "$PORT")
 [[ -n "$CONFIG_PATH" ]] && ARGS+=("--config" "$CONFIG_PATH")
 [[ -n "$TOKEN" ]] && ARGS+=("--token" "$TOKEN")
 
-exec bun run dist/cli.js "${ARGS[@]}"
+exec node dist/cli.js "${ARGS[@]}"

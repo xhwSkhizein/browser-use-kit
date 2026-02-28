@@ -13,16 +13,16 @@ Control browsers programmatically using the `browser-use-kit` server's HTTP API.
 
 ```bash
 cd browser-use-kit
-bun install
-bun run build
-bun start
+npm install
+npm run build
+npm start
 ```
 
 Default: `http://127.0.0.1:18791`
 
 Custom configuration:
 ```bash
-bun start -- --host 0.0.0.0 --port 8080 --token my-secret-token
+npm start -- --host 0.0.0.0 --port 8080 --token my-secret-token
 ```
 
 ### Base URL and Authentication
@@ -827,7 +827,7 @@ Body: {
 ## Testing
 
 Use the built-in web UI:
-1. Start server: `bun start`
+1. Start server: `npm start`
 2. Open browser: `http://127.0.0.1:18791`
 3. Test all APIs interactively
 
