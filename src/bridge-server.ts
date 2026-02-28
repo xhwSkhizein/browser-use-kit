@@ -35,6 +35,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { ResolvedBrowserConfig } from "./config.js";
+import { registerApiErrorHandler, registerApiRequestLogger } from "./request-logger.js";
 import { registerBrowserRoutes } from "./routes/index.js";
 import {
   type BrowserServerState,
@@ -70,6 +71,7 @@ export async function startBrowserBridgeServer(params: {
   app.use(express.static(publicDir));
   
   app.use(express.json({ limit: "1mb" }));
+  registerApiRequestLogger(app);
 
   const authToken = params.authToken?.trim();
   if (authToken) {
@@ -109,6 +111,7 @@ export async function startBrowserBridgeServer(params: {
   
   // Register browser API routes
   registerBrowserRoutes(app, ctx);
+  registerApiErrorHandler(app);
   
   // Serve index.html for root path (fallback for SPA routing)
   app.get("/", (req, res, next) => {
